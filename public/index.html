@@ -1,0 +1,1236 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Paid embed SDK — test harness</title>
+    <style>
+      :root {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        color-scheme: light;
+        --border: #e5e7eb;
+        --muted: #6b7280;
+        --surface: #fff;
+        --bg: #f6f7f9;
+        --code-bg: #f9fafb;
+        --accent: #111827;
+        --success: #16a34a;
+        --success-bg: #dcfce7;
+        --warning: #d97706;
+        --warning-bg: #fef3c7;
+        --danger: #dc2626;
+        --danger-bg: #fee2e2;
+        --info: #0369a1;
+        --info-bg: #f0f9ff;
+        --info-border: #bae6fd;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--accent); }
+
+      /* ── Full-height shell ── */
+      .shell {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+      }
+
+      /* ── Header ── */
+      header {
+        background: var(--surface);
+        padding: 0.75rem 2rem;
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+      }
+      header h1 { margin: 0; font-size: 1.1rem; }
+      header p {
+        margin: 0.2rem 0 0;
+        color: var(--muted);
+        font-size: 0.8rem;
+        max-width: 720px;
+        line-height: 1.4;
+      }
+
+      /* ── Layout ── */
+      .layout {
+        display: grid;
+        grid-template-columns: 40% 1fr;
+        gap: 1rem;
+        flex: 1;
+        min-height: 0; /* allow children to shrink below content size */
+        max-width: 1440px;
+        margin: 0 auto;
+        padding: 1rem;
+        width: 100%;
+      }
+      @media (max-width: 960px) {
+        .layout { grid-template-columns: 1fr; }
+      }
+      .steps-col {
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        padding-right: 0.5rem;
+      }
+
+      /* ── Preview pane (right) ── */
+      .preview-col {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+      .preview-panel {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+      }
+      .preview-tabs {
+        display: flex;
+        border-bottom: 1px solid var(--border);
+        background: var(--code-bg);
+        flex-shrink: 0;
+      }
+      .preview-tab {
+        padding: 0.55rem 1rem;
+        font-size: 0.78rem;
+        font-weight: 500;
+        color: var(--muted);
+        background: none;
+        border: none;
+        border-bottom: 2px solid transparent;
+        border-radius: 0;
+        cursor: pointer;
+      }
+      .preview-tab:hover { color: var(--accent); }
+      .preview-tab.active {
+        color: var(--accent);
+        border-bottom-color: var(--accent);
+        background: var(--surface);
+      }
+      .preview-tab:disabled { opacity: 1; }
+      .preview-body {
+        flex: 1;
+        position: relative;
+        min-height: 0;
+      }
+      .preview-pane {
+        display: none;
+        position: absolute;
+        inset: 0;
+        overflow: auto;
+      }
+      .preview-pane.active {
+        display: flex;
+        flex-direction: column;
+      }
+      .preview-pane > div {
+        flex: 1;
+        min-height: 0;
+      }
+      .preview-pane iframe {
+        width: 100% !important;
+        border: 0 !important;
+        display: block !important;
+        min-height: 100%;
+      }
+      .preview-empty {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        color: var(--muted);
+        font-size: 0.85rem;
+        text-align: center;
+        padding: 2rem;
+        line-height: 1.5;
+      }
+
+      /* ── Panels ── */
+      .panel {
+        background: var(--surface);
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        padding: 1rem 1.125rem;
+        position: relative;
+        transition: opacity 0.2s;
+      }
+      .panel h2 {
+        margin: 0 0 0.125rem;
+        font-size: 0.95rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+      }
+      .panel .hint {
+        font-size: 0.8rem;
+        color: var(--muted);
+        margin: 0 0 0.75rem;
+        line-height: 1.45;
+      }
+      .panel.locked {
+        opacity: 0.45;
+        pointer-events: none;
+      }
+      /* ── Step number ── */
+      .step-num {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.35rem;
+        height: 1.35rem;
+        background: #9ca3af;
+        color: #fff;
+        font-size: 0.7rem;
+        font-weight: 700;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      .step-num.active { background: var(--accent); }
+      .step-num.done { background: var(--success); }
+
+      /* ── Fields ── */
+      .field { margin-bottom: 0.65rem; }
+      .field label {
+        display: block;
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: var(--muted);
+        margin-bottom: 0.2rem;
+      }
+      select, input, textarea {
+        width: 100%;
+        padding: 0.4rem 0.5rem;
+        border: 1px solid #d1d5db;
+        border-radius: 4px;
+        font-size: 0.875rem;
+        font-family: inherit;
+      }
+      textarea { resize: vertical; }
+      .readonly-input {
+        background: var(--code-bg);
+        color: var(--muted);
+        cursor: default;
+      }
+      .field-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0 0.75rem;
+      }
+
+      /* ── Actions ── */
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+        margin-bottom: 0.5rem;
+      }
+
+      /* ── Buttons ── */
+      button {
+        background: var(--accent);
+        color: #fff;
+        border: 0;
+        padding: 0.45rem 0.8rem;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        cursor: pointer;
+        font-family: inherit;
+      }
+      button:hover:not(:disabled) { opacity: 0.85; }
+      button:disabled { opacity: 0.4; cursor: not-allowed; }
+      button.secondary {
+        background: var(--surface);
+        color: var(--accent);
+        border: 1px solid #d1d5db;
+      }
+      button.danger {
+        background: var(--surface);
+        color: var(--danger);
+        border: 1px solid var(--danger);
+      }
+
+      /* ── Status badges ── */
+      .badge {
+        display: inline-block;
+        padding: 0.15rem 0.45rem;
+        border-radius: 4px;
+        font-size: 0.72rem;
+        font-weight: 600;
+        font-family: monospace;
+      }
+      .badge.ok { background: var(--success-bg); color: #15803d; }
+      .badge.neutral { background: var(--code-bg); color: var(--muted); border: 1px solid var(--border); }
+      .badge.error { background: var(--danger-bg); color: #991b1b; }
+
+      /* ── Inline status line ── */
+      .status-line {
+        font-size: 0.78rem;
+        line-height: 1.5;
+        padding: 0.5rem 0.65rem;
+        border-radius: 6px;
+        margin-bottom: 0.5rem;
+      }
+      .status-line.ok { background: var(--success-bg); color: #15803d; border: 1px solid #86efac; }
+      .status-line.error { background: var(--danger-bg); color: #991b1b; border: 1px solid #fca5a5; }
+      .status-line.info { background: var(--info-bg); color: #0c4a6e; border: 1px solid var(--info-border); }
+      .status-line.warn { background: var(--warning-bg); color: #92400e; border: 1px solid #fcd34d; }
+      .status-line code {
+        background: rgba(0,0,0,0.06);
+        padding: 0.1rem 0.3rem;
+        border-radius: 3px;
+        font-size: 0.75rem;
+      }
+
+      /* ── Pre/output ── */
+      pre {
+        margin: 0;
+        font-size: 0.72rem;
+        max-height: 180px;
+        overflow: auto;
+        background: var(--code-bg);
+        padding: 0.5rem;
+        border-radius: 4px;
+        border: 1px solid var(--border);
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+      pre.empty {
+        color: var(--muted);
+        font-style: italic;
+      }
+
+      /* ── Inline error ── */
+      .inline-error {
+        font-size: 0.78rem;
+        color: var(--danger);
+        margin-top: 0.35rem;
+        display: none;
+      }
+      .inline-error.visible { display: block; }
+
+      /* ── Checkbox row ── */
+      .check-row {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 0.6rem;
+      }
+      .check-row label {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        font-size: 0.8rem;
+        color: var(--muted);
+        cursor: pointer;
+      }
+
+
+      /* ── Kv display ── */
+      .kv { font-size: 0.8rem; line-height: 1.7; }
+      .kv .k { color: var(--muted); font-weight: 500; }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+    <header>
+      <h1>Paid embed SDK — test harness</h1>
+      <p>
+        Mirrors <strong>Settings &gt; Share auth</strong> in your Paid dashboard.
+        Complete each step on the left, see the result on the right.
+      </p>
+    </header>
+
+    <div class="layout">
+      <div class="steps-col">
+      <!-- ═══════════════ Step 0: Connection ═══════════════ -->
+      <div class="panel" id="step-connection">
+        <h2><span class="step-num active" id="num-0">0</span> Connection</h2>
+        <p class="hint">
+          Enter your Paid API base URL, app base URL, API key, and signing secret.
+          The API key and secret come from your Paid dashboard.
+        </p>
+        <div id="conn-status"></div>
+        <div class="field-row">
+          <div class="field">
+            <label>API base URL</label>
+            <input id="cfg-api-base" placeholder="https://api.agentpaid.io" />
+          </div>
+          <div class="field">
+            <label>App base URL</label>
+            <input id="cfg-app-base" placeholder="https://app.paid.ai" />
+          </div>
+        </div>
+        <div class="field">
+          <label>API key</label>
+          <input id="cfg-api-key" type="password" placeholder="From Settings > API keys" />
+        </div>
+        <div class="field">
+          <label>Signing secret</label>
+          <input id="cfg-secret" type="password" placeholder="From Settings > Share auth > Generate/Rotate key" />
+        </div>
+        <div class="actions">
+          <button id="btn-save-conn">Save &amp; connect</button>
+          <button id="btn-toggle-secrets" class="secondary">Show secrets</button>
+          <button id="btn-reset" class="danger">Reset</button>
+        </div>
+      </div>
+
+      <!-- ═══════════════ Step 1: URLs ═══════════════ -->
+      <div class="panel locked" id="step-urls">
+        <h2><span class="step-num" id="num-1">1</span> URLs</h2>
+        <p class="hint">
+          Copy these into your Paid app under Settings &gt; Share auth &gt; Configuration &gt; Edit.
+        </p>
+        <div class="field">
+          <label>Login URL</label>
+          <div style="display:flex;gap:0.35rem;align-items:center">
+            <input id="url-login" readonly style="flex:1;background:var(--code-bg);cursor:text" />
+            <button class="secondary copy-btn" data-target="url-login" style="white-space:nowrap;padding:0.35rem 0.6rem;font-size:0.75rem">Copy</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Refresh URL</label>
+          <div style="display:flex;gap:0.35rem;align-items:center">
+            <input id="url-refresh" readonly style="flex:1;background:var(--code-bg);cursor:text" />
+            <button class="secondary copy-btn" data-target="url-refresh" style="white-space:nowrap;padding:0.35rem 0.6rem;font-size:0.75rem">Copy</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══════════════ Step 2: JWT ═══════════════ -->
+      <div class="panel locked" id="step-jwt">
+        <h2><span class="step-num" id="num-2">2</span> JWT</h2>
+        <p class="hint">
+          Mint a signed token. Optionally bind it to a specific value receipt.
+          Leave the VR blank to mint a customer-scoped token that works for
+          all value receipts belonging to that customer.
+        </p>
+        <div class="field-row">
+          <div class="field" style="position:relative">
+            <label>Customer (sub)</label>
+            <input id="mint-sub-search" placeholder="Search customers..." autocomplete="off" />
+            <div id="mint-sub-dropdown" style="display:none;position:absolute;z-index:20;left:0;right:0;top:100%;max-height:200px;overflow-y:auto;background:var(--surface);border:1px solid var(--border);border-radius:0 0 4px 4px;box-shadow:0 4px 12px rgba(0,0,0,0.1)"></div>
+            <input type="hidden" id="mint-sub" />
+          </div>
+          <div class="field">
+            <label>Value receipt (optional)</label>
+            <select id="mint-vr"></select>
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>TTL (seconds)</label>
+            <input id="mint-ttl" type="number" value="3600" />
+          </div>
+          <div class="field">
+            <div class="check-row" style="margin-top:1.35rem">
+              <label><input id="mint-expired" type="checkbox" /> Force expired</label>
+              <label><input id="mint-wrong-sig" type="checkbox" /> Wrong signature</label>
+            </div>
+          </div>
+        </div>
+        <div class="actions">
+          <button id="btn-mint">Mint JWT</button>
+          <button id="btn-clear-jwt" class="danger" style="display:none">Clear JWT</button>
+        </div>
+        <div id="jwt-display"></div>
+      </div>
+
+      <!-- ═══════════════ Step 3: Render ═══════════════ -->
+      <div class="panel locked" id="step-render">
+        <h2><span class="step-num" id="num-3">3</span> Render</h2>
+        <p class="hint">
+          Pick a value receipt and render it using the JWT from step 1.
+          Try a different VR or customer to see the middleware reject it.
+        </p>
+        <div class="field">
+          <label>Value receipt</label>
+          <select id="vr-select"></select>
+        </div>
+        <div class="actions">
+          <button id="btn-render">Render</button>
+          <button id="btn-open-direct" class="secondary">Open direct link</button>
+          <button id="btn-destroy" class="danger" disabled>Destroy</button>
+          <button id="btn-publish-open" class="secondary">Publish VR</button>
+          <button id="btn-unpublish" class="secondary">Unpublish</button>
+        </div>
+        <div id="render-status"></div>
+      </div>
+
+      <!-- Publish dialog -->
+      <dialog id="publish-dialog" style="border:1px solid var(--border);border-radius:8px;padding:1.5rem;max-width:380px;width:100%;font-family:inherit;color:var(--accent)">
+        <h3 style="margin:0 0 0.25rem;font-size:1rem">Publish value receipt</h3>
+        <p style="margin:0 0 1rem;font-size:0.8rem;color:var(--muted);line-height:1.4">
+          Make this VR publicly accessible without a JWT. Optionally set an expiry.
+        </p>
+        <div class="field" style="margin-bottom:0.75rem">
+          <label style="font-size:0.8rem;font-weight:500;display:block;margin-bottom:0.25rem">Expires after</label>
+          <select id="publish-ttl" style="width:100%;padding:0.4rem;border:1px solid var(--border);border-radius:4px;font-family:inherit;font-size:0.85rem">
+            <option value="">Never</option>
+            <option value="3600">1 hour</option>
+            <option value="86400">1 day</option>
+            <option value="604800">7 days</option>
+            <option value="2592000">30 days</option>
+          </select>
+        </div>
+        <div style="margin-bottom:1rem">
+          <label style="font-size:0.8rem;cursor:pointer"><input id="publish-embed" type="checkbox" checked /> Allow embedding in iframes</label>
+        </div>
+        <div style="display:flex;gap:0.5rem;justify-content:flex-end">
+          <button class="secondary" id="btn-publish-cancel" style="padding:0.4rem 0.9rem;font-size:0.85rem">Cancel</button>
+          <button id="btn-publish-confirm" style="padding:0.4rem 0.9rem;font-size:0.85rem">Publish</button>
+        </div>
+      </dialog>
+
+      </div><!-- /.steps-col -->
+
+      <!-- ═══════════════ Right: Preview ═══════════════ -->
+      <div class="preview-col">
+        <div class="preview-panel">
+          <div class="preview-tabs">
+            <button class="preview-tab active" data-tab="pm">postMessage</button>
+            <button class="preview-tab" data-tab="url">URL param</button>
+            <button class="preview-tab" data-tab="api">API response</button>
+
+          </div>
+          <div class="preview-body">
+            <div class="preview-pane active" id="pane-pm">
+              <div class="preview-empty" id="empty-pm">
+                Complete the steps on the left then click <strong>Mint JWT &amp; render</strong>
+              </div>
+              <div id="embed-pm"></div>
+            </div>
+            <div class="preview-pane" id="pane-url">
+              <div class="preview-empty" id="empty-url">
+                Complete the steps on the left then click <strong>Mint JWT &amp; render</strong>
+              </div>
+              <div id="embed-url"></div>
+            </div>
+            <div class="preview-pane" id="pane-api">
+              <div class="preview-empty" id="empty-api">
+                Click <strong>Refresh lists</strong> or connect to load value receipts from the API.
+              </div>
+              <div id="api-request-info" style="display:none;padding:0.5rem 0.75rem;background:var(--surface);border-bottom:1px solid var(--border);font-size:0.72rem;flex-shrink:0">
+                <span class="badge ok" style="font-size:0.65rem;margin-right:0.35rem">GET</span>
+                <code id="api-request-url" style="word-break:break-all"></code>
+              </div>
+              <pre id="api-response" style="font-size:0.72rem;white-space:pre-wrap;word-break:break-all;margin:0;padding:0.75rem;display:none;min-height:100%;background:var(--code-bg)"></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div><!-- /.layout -->
+    </div><!-- /.shell -->
+
+    <script src="/sdk/index.global.js"></script>
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const state = {
+        cfg: null,
+        vrs: [],
+        customers: [],
+        selectedId: null,
+        jwt: null,
+        handles: [],
+      };
+
+      // ── Helpers ──
+
+      function showError(id, msg) {
+        const el = $(id);
+        el.textContent = msg;
+        el.classList.add("visible");
+        setTimeout(() => el.classList.remove("visible"), 6000);
+      }
+
+      function setStatus(containerId, html, cls) {
+        const el = $(containerId);
+        if (!html) { el.innerHTML = ""; return; }
+        el.innerHTML = `<div class="status-line ${cls}">${html}</div>`;
+      }
+
+      function stepNum(id, mode) {
+        const el = $(id);
+        const num = id.replace("num-", "");
+        el.className = "step-num" + (mode === "done" ? " done" : mode === "active" ? " active" : "");
+        el.textContent = mode === "done" ? "\u2713" : num;
+      }
+
+      function lockPanel(id, locked) {
+        $(id).classList.toggle("locked", locked);
+      }
+
+      // ── Progressive unlocking ──
+
+      function getSelectedVr() {
+        return state.vrs.find((v) => v.id === state.selectedId) ?? null;
+      }
+
+      function updateSteps() {
+        const connected = state.cfg?.ready === true;
+        const rendered = state.handles.length > 0;
+
+        const hasJwt = !!state.jwt;
+        // Step nums: 0=connection, 1=urls, 2=jwt, 3=render
+        stepNum("num-0", connected ? "done" : "active");
+        stepNum("num-1", connected ? "done" : "");
+        stepNum("num-2", hasJwt ? "done" : connected ? "active" : "");
+        stepNum("num-3", rendered ? "done" : connected ? "active" : "");
+
+        // Locks
+        lockPanel("step-urls", !connected);
+        lockPanel("step-jwt", !connected);
+        lockPanel("step-render", !connected);
+
+        // Show/hide clear button
+        $("btn-clear-jwt").style.display = hasJwt ? "" : "none";
+
+        // Buttons
+        $("btn-destroy").disabled = !rendered;
+      }
+
+      // ── Step 0: Connection ──
+
+      function renderConnStatus() {
+        const cfg = state.cfg;
+        if (!cfg) return;
+        if (cfg.ready) {
+          setStatus("conn-status",
+            `Connected to <code>${cfg.paidApiBase}</code>`,
+            "ok");
+        } else if (cfg.connectionError) {
+          setStatus("conn-status", `Connection failed: ${escHtml(cfg.connectionError)}`, "error");
+        } else if (cfg.missingVars?.length) {
+          const list = cfg.missingVars.map((v) => `<code>${v}</code>`).join(", ");
+          setStatus("conn-status", `Missing: ${list}`, "error");
+        } else {
+          setStatus("conn-status", null);
+        }
+      }
+
+      function populateConnFields(values, secretsSet) {
+        if (values.PAID_API_BASE) $("cfg-api-base").value = values.PAID_API_BASE;
+        if (values.PAID_APP_BASE) $("cfg-app-base").value = values.PAID_APP_BASE;
+        // Secrets are NEVER sent by the server — we just get a "configured"
+        // boolean. Leave the input empty; show a placeholder so the user knows
+        // a value is already stored. Typing anything submits the new value;
+        // leaving it empty means "keep current".
+        const apiKeyInput = $("cfg-api-key");
+        apiKeyInput.value = "";
+        apiKeyInput.placeholder = secretsSet?.PAID_API_KEY
+          ? "\u2022\u2022\u2022 configured (type to change)"
+          : "paste your API key";
+        const secretInput = $("cfg-secret");
+        secretInput.value = "";
+        secretInput.placeholder = secretsSet?.PAID_SHARE_AUTH_SECRET
+          ? "\u2022\u2022\u2022 configured (type to change)"
+          : "paste your signing secret";
+      }
+
+      async function loadConfig() {
+        const r = await fetch("/config");
+        state.cfg = await r.json();
+        populateConnFields(state.cfg.values || {}, state.cfg.secretsSet || {});
+        renderConnStatus();
+        updateSteps();
+      }
+
+      $("btn-save-conn").addEventListener("click", async () => {
+        $("btn-save-conn").disabled = true;
+        $("btn-save-conn").textContent = "Connecting\u2026";
+        try {
+          const body = {
+            PAID_API_BASE: $("cfg-api-base").value,
+            PAID_APP_BASE: $("cfg-app-base").value,
+          };
+          // Only send secret fields if the user actually typed something.
+          // Empty = "keep existing" on the server side.
+          const apiKey = $("cfg-api-key").value;
+          if (apiKey) body.PAID_API_KEY = apiKey;
+          const secret = $("cfg-secret").value;
+          if (secret) body.PAID_SHARE_AUTH_SECRET = secret;
+          const r = await fetch("/config", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          const result = await r.json();
+          state.cfg = {
+            ...state.cfg,
+            ...result,
+            values: result.values,
+            secretsSet: result.secretsSet,
+          };
+          populateConnFields(result.values || {}, result.secretsSet || {});
+          renderConnStatus();
+          updateSteps();
+          if (result.ready) { await loadCustomers(); await loadVrs(); }
+        } finally {
+          $("btn-save-conn").disabled = false;
+          $("btn-save-conn").textContent = "Save & connect";
+        }
+      });
+
+      $("btn-toggle-secrets").addEventListener("click", () => {
+        const btn = $("btn-toggle-secrets");
+        const showing = btn.textContent === "Hide secrets";
+        $("cfg-api-key").type = showing ? "password" : "text";
+        $("cfg-secret").type = showing ? "password" : "text";
+        btn.textContent = showing ? "Show secrets" : "Hide secrets";
+      });
+
+      $("btn-reset").addEventListener("click", async () => {
+        if (!confirm("Reset all configuration and start from scratch?")) return;
+        await fetch("/config/reset", { method: "POST" });
+        // Clear all local state
+        state.cfg = null;
+        state.vrs = [];
+        state.selectedId = null;
+        state.jwt = null;
+        destroyAll();
+        // Clear all inputs
+        for (const id of ["cfg-api-base","cfg-app-base","cfg-api-key","cfg-secret"]) {
+          $(id).value = "";
+        }
+        $("mint-ttl").value = "3600";
+        $("mint-sub").value = "";
+        $("mint-sub-search").value = "";
+        customerCache = [];
+        $("vr-select").innerHTML = "";
+        $("render-status").innerHTML = "";
+        // Reload config from server (now reset)
+        await loadConfig();
+      });
+
+
+
+      // ── Customers (searchable, paginated) ──
+
+      const PAGE_SIZE = 20;
+      let customerCache = []; // all fetched customers
+      let customerTotal = 0;
+      let customerLoading = false;
+      let customerSearchTimer = null;
+
+      async function fetchCustomerPage(offset = 0) {
+        const r = await fetch(`/api/customers?limit=${PAGE_SIZE}&offset=${offset}`);
+        return r.json();
+      }
+
+      async function loadAllCustomers() {
+        customerCache = [];
+        customerTotal = 0;
+        try {
+          const first = await fetchCustomerPage(0);
+          customerCache = first.data ?? [];
+          customerTotal = first.pagination?.total ?? customerCache.length;
+          // Fetch remaining pages in parallel
+          if (customerTotal > PAGE_SIZE) {
+            const pages = [];
+            for (let off = PAGE_SIZE; off < customerTotal; off += PAGE_SIZE) {
+              pages.push(fetchCustomerPage(off));
+            }
+            const results = await Promise.all(pages);
+            for (const page of results) {
+              customerCache.push(...(page.data ?? []));
+            }
+          }
+          state.customers = customerCache;
+        } catch {
+          customerCache = [];
+          state.customers = [];
+        }
+      }
+
+      function loadCustomers() {
+        return loadAllCustomers();
+      }
+
+      function renderCustomerDropdown(filter = "") {
+        const dropdown = $("mint-sub-dropdown");
+        const q = filter.toLowerCase();
+        const matches = q
+          ? customerCache.filter(c =>
+              (c.name || "").toLowerCase().includes(q) ||
+              (c.externalId || "").toLowerCase().includes(q) ||
+              (c.id || "").toLowerCase().includes(q)
+            )
+          : customerCache;
+
+        if (matches.length === 0) {
+          dropdown.innerHTML = '<div style="padding:0.5rem 0.75rem;font-size:0.8rem;color:var(--muted)">No customers found</div>';
+          dropdown.style.display = "block";
+          return;
+        }
+        dropdown.innerHTML = "";
+        for (const c of matches.slice(0, 50)) {
+          const div = document.createElement("div");
+          div.textContent = `${c.name || c.id} (${c.externalId || c.id})`;
+          div.style.cssText = "padding:0.4rem 0.75rem;font-size:0.85rem;cursor:pointer;";
+          div.addEventListener("mouseenter", () => div.style.background = "var(--code-bg)");
+          div.addEventListener("mouseleave", () => div.style.background = "");
+          div.addEventListener("mousedown", (e) => {
+            e.preventDefault();
+            $("mint-sub").value = c.externalId || c.id;
+            $("mint-sub-search").value = `${c.name || c.id} (${c.externalId || c.id})`;
+            dropdown.style.display = "none";
+          });
+          dropdown.appendChild(div);
+        }
+        if (matches.length > 50) {
+          const more = document.createElement("div");
+          more.textContent = `+ ${matches.length - 50} more — refine your search`;
+          more.style.cssText = "padding:0.4rem 0.75rem;font-size:0.75rem;color:var(--muted);font-style:italic;";
+          dropdown.appendChild(more);
+        }
+        dropdown.style.display = "block";
+      }
+
+      $("mint-sub-search").addEventListener("focus", () => renderCustomerDropdown($("mint-sub-search").value));
+      $("mint-sub-search").addEventListener("blur", () => setTimeout(() => $("mint-sub-dropdown").style.display = "none", 150));
+      $("mint-sub-search").addEventListener("input", (e) => {
+        clearTimeout(customerSearchTimer);
+        customerSearchTimer = setTimeout(() => renderCustomerDropdown(e.target.value), 100);
+      });
+
+      function vrCustomerName(vr) {
+        return vr?.customerName || vr?.customerExternalId || vr?.customerId || "unknown";
+      }
+
+      // ── Value receipts ──
+
+      async function loadVrs() {
+        let rawResponse = null;
+        try {
+          const r = await fetch("/api/value-receipts");
+          const body = await r.json();
+          rawResponse = body;
+          state.vrs = body.data ?? [];
+        } catch {
+          state.vrs = [];
+        }
+        // Enrich with full public URL and show in the API tab
+        if (rawResponse) {
+          const base = (state.cfg?.paidAppBase || "https://app.paid.ai").replace(/\/$/, "");
+          const enriched = {
+            ...rawResponse,
+            data: (rawResponse.data ?? []).map((vr) => ({
+              ...vr,
+              publicUrl: vr.publicUrlToken ? `${base}/public/value-receipts/${vr.publicUrlToken}` : null,
+            })),
+          };
+          $("empty-api").style.display = "none";
+          $("api-request-info").style.display = "block";
+          $("api-request-url").textContent = (state.cfg?.paidApiBase || "https://api.agentpaid.io") + "/api/v2/value-receipts";
+          $("api-response").style.display = "block";
+          $("api-response").textContent = JSON.stringify(enriched, null, 2);
+        }
+        // Build VR option HTML once, reuse for both dropdowns
+        function vrOptionText(vr) {
+          const cName = vrCustomerName(vr);
+          const pub = vr.isPublished ? "published" : "private";
+          const period = vr.startDate && vr.endDate
+            ? `${new Date(vr.startDate).toLocaleDateString()} \u2013 ${new Date(vr.endDate).toLocaleDateString()}`
+            : "";
+          const val = vr.totalDeliveredValue != null
+            ? `$${Math.round(vr.totalDeliveredValue).toLocaleString()}`
+            : "";
+          return [cName, period, val, pub].filter(Boolean).join(" \u2014 ");
+        }
+
+        // Render VR dropdown (uses VR id)
+        const renderSel = $("vr-select");
+        renderSel.innerHTML = "";
+        // Mint VR dropdown (uses publicUrlToken)
+        const mintSel = $("mint-vr");
+        mintSel.innerHTML = "";
+
+        // Mint dropdown always gets an empty option for customer-scoped tokens
+        const emptyOpt = document.createElement("option");
+        emptyOpt.value = "";
+        emptyOpt.textContent = "None (customer-scoped)";
+        mintSel.appendChild(emptyOpt);
+
+        if (state.vrs.length === 0) {
+          const opt = document.createElement("option");
+          opt.textContent = "No value receipts found";
+          opt.disabled = true;
+          renderSel.appendChild(opt);
+        } else {
+          for (const vr of state.vrs) {
+            const text = vrOptionText(vr);
+            const rOpt = document.createElement("option");
+            rOpt.value = vr.id;
+            rOpt.textContent = text;
+            renderSel.appendChild(rOpt);
+
+            const mOpt = document.createElement("option");
+            mOpt.value = vr.publicUrlToken || "";
+            mOpt.textContent = text;
+            mintSel.appendChild(mOpt);
+          }
+        }
+        state.selectedId = $("vr-select").value || null;
+        updateRenderStatus();
+        updateSteps();
+      }
+
+      function updateRenderStatus() {
+        const vr = getSelectedVr();
+        if (!vr) { $("render-status").innerHTML = ""; return; }
+
+        const parts = [];
+        const owner = vrCustomerName(vr);
+        const base = state.cfg?.paidAppBase || "https://app.paid.ai";
+        const publicUrl = vr.publicUrlToken ? `${base}/public/value-receipts/${vr.publicUrlToken}` : null;
+
+        // VR info
+        if (vr.isPublished && vr.publicUrlToken) {
+          parts.push(`<div class="status-line ok">Published &mdash; owned by <strong>${escHtml(owner)}</strong><br>` +
+            `<a href="${publicUrl}" target="_blank" style="color:inherit;text-decoration:underline">${publicUrl}</a></div>`);
+        } else if (vr.publicUrlToken) {
+          parts.push(`<div class="status-line warn">Private (requires JWT) &mdash; owned by <strong>${escHtml(owner)}</strong></div>`);
+        } else {
+          parts.push(`<div class="status-line warn">No URL token &mdash; owned by <strong>${escHtml(owner)}</strong></div>`);
+        }
+
+        // Mismatch warnings (only when JWT exists)
+        if (state.jwt) {
+          const decoded = decodeJwt(state.jwt);
+          if (decoded) {
+            const { payload } = decoded;
+            const warnings = [];
+            if (payload.sub) {
+              const vrOwnerExt = vr.customerExternalId || vr.customerId;
+              if (payload.sub !== vrOwnerExt && payload.sub !== vr.customerId) {
+                warnings.push(`<strong>Customer mismatch:</strong> JWT sub is <strong>${escHtml(payload.sub)}</strong> but VR belongs to <strong>${escHtml(owner)}</strong>`);
+              }
+            }
+            if (payload.resourceId && vr.publicUrlToken && payload.resourceId !== vr.publicUrlToken && payload.resourceId !== vr.id) {
+              warnings.push(`<strong>Resource ID mismatch:</strong> JWT was minted for a different value receipt`);
+            }
+            if (!payload.resourceId) {
+              warnings.push(`<strong>Customer-scoped:</strong> no resourceId \u2014 valid for all VRs of this customer`);
+            }
+            if (payload.exp && payload.exp * 1000 < Date.now()) {
+              warnings.push(`<strong>Expired:</strong> JWT expired at ${new Date(payload.exp * 1000).toLocaleString()}`);
+            }
+            if (warnings.length > 0) {
+              parts.push(`<div class="status-line error">${warnings.join("<br>")}<br>The middleware will reject this.</div>`);
+            }
+          }
+        } else {
+          if (!vr.isPublished) {
+            parts.push(`<div class="status-line info">No JWT &mdash; this VR is private, so rendering will fail unless it's published.</div>`);
+          }
+        }
+
+        $("render-status").innerHTML = parts.join("");
+      }
+
+      $("vr-select").addEventListener("change", (e) => {
+        state.selectedId = e.target.value;
+        updateRenderStatus();
+        updateSteps();
+      });
+      // Mismatch warning updates when VR selection changes (JWT sub is checked from decoded token)
+
+
+      // ── VR actions ──
+      async function shareApi(action, body) {
+        const r = await fetch(
+          `/api/value-receipts/${state.selectedId}/${action}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body ?? {}),
+          },
+        );
+        return r.json();
+      }
+
+      $("btn-publish-open").addEventListener("click", () => {
+        $("publish-ttl").value = "";
+        $("publish-embed").checked = true;
+        $("publish-dialog").showModal();
+      });
+      $("btn-publish-cancel").addEventListener("click", () => {
+        $("publish-dialog").close();
+      });
+      $("btn-publish-confirm").addEventListener("click", async () => {
+        const ttl = Number($("publish-ttl").value) || 0;
+        const allowEmbed = $("publish-embed").checked;
+        const body = { allowEmbed };
+        if (ttl > 0) {
+          body.publishExpiresAt = new Date(Date.now() + ttl * 1000).toISOString();
+        }
+        $("btn-publish-confirm").disabled = true;
+        $("btn-publish-confirm").textContent = "Publishing\u2026";
+        try {
+          await shareApi("publish", body);
+          await loadVrs();
+          $("publish-dialog").close();
+        } finally {
+          $("btn-publish-confirm").disabled = false;
+          $("btn-publish-confirm").textContent = "Publish";
+        }
+      });
+      $("btn-unpublish").addEventListener("click", async () => {
+        await shareApi("unpublish");
+        await loadVrs();
+      });
+
+      // ── Step 3: JWT ──
+
+      function decodeJwt(token) {
+        try {
+          const parts = token.split(".");
+          return {
+            header: JSON.parse(atob(parts[0].replace(/-/g,"+").replace(/_/g,"/"))),
+            payload: JSON.parse(atob(parts[1].replace(/-/g,"+").replace(/_/g,"/"))),
+          };
+        } catch { return null; }
+      }
+
+      function renderJwtDisplay() {
+        if (!state.jwt) {
+          $("jwt-display").innerHTML = "";
+          return;
+        }
+        const decoded = decodeJwt(state.jwt);
+        if (!decoded) {
+          $("jwt-display").innerHTML =
+            `<pre style="margin-top:0.5rem;font-size:0.65rem;max-height:60px">${escHtml(state.jwt)}</pre>`;
+          return;
+        }
+        const { header, payload } = decoded;
+        const isExpired = payload.exp && payload.exp * 1000 < Date.now();
+        const expBadge = isExpired
+          ? `<span style="color:var(--danger);font-weight:600">Expired</span>`
+          : `<span style="color:var(--success);font-weight:600">Valid</span> \u2014 expires ${new Date(payload.exp * 1000).toLocaleString()}`;
+        $("jwt-display").innerHTML =
+          `<div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.5rem;font-size:0.8rem">` +
+            expBadge +
+            `<span id="jwt-verify-badge" style="font-size:0.75rem;color:var(--muted)"></span>` +
+          `</div>` +
+          `<details style="margin-top:0.5rem" open>` +
+            `<summary style="font-size:0.72rem;font-weight:500;color:var(--muted);cursor:pointer;user-select:none">Payload</summary>` +
+            `<pre style="font-size:0.68rem;max-height:140px;margin-top:0.25rem">${escHtml(JSON.stringify(payload, null, 2))}</pre>` +
+          `</details>` +
+          `<details style="margin-top:0.25rem">` +
+            `<summary style="font-size:0.72rem;font-weight:500;color:var(--muted);cursor:pointer;user-select:none">Raw token</summary>` +
+            `<pre style="font-size:0.6rem;max-height:40px;margin-top:0.25rem">${escHtml(state.jwt)}</pre>` +
+          `</details>`;
+      }
+
+      // ── Step 1: JWT ──
+
+      $("btn-mint").addEventListener("click", async () => {
+        const resourceId = $("mint-vr").value || undefined; // empty = no resource binding
+        try {
+          const body_payload = {
+            sub: $("mint-sub").value || "c_test",
+            ttlSeconds: Number($("mint-ttl").value) || 3600,
+            forceExpired: $("mint-expired").checked,
+            wrongSignature: $("mint-wrong-sig").checked,
+          };
+          if (resourceId) body_payload.resourceId = resourceId;
+          const r = await fetch("/mint", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body_payload),
+          });
+          const body = await r.json();
+          if (!r.ok) {
+            $("jwt-display").innerHTML = `<div class="status-line error" style="margin-top:0.5rem">${escHtml(body.error || "Mint failed")}</div>`;
+            return;
+          }
+          state.jwt = body.token;
+          renderJwtDisplay();
+          updateRenderStatus();
+          updateSteps();
+          // Auto-verify the minted JWT against the backend.
+          // For customer-scoped tokens (no resourceId), use the render
+          // dropdown's selected VR to have something to verify against.
+          const verifyToken = resourceId || getSelectedVr()?.publicUrlToken;
+          if (verifyToken) {
+            verifyJwt(body.token, verifyToken);
+          }
+        } catch (err) {
+          $("jwt-display").innerHTML = `<div class="status-line error" style="margin-top:0.5rem">${escHtml(err.message)}</div>`;
+        }
+      });
+
+      async function verifyJwt(token, publicUrlToken) {
+        const badge = $("jwt-verify-badge");
+        if (!badge) return;
+        badge.textContent = "verifying\u2026";
+        badge.style.color = "var(--muted)";
+        try {
+          const r = await fetch("/api/verify-jwt", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token, publicUrlToken }),
+          });
+          const result = await r.json();
+          if (result.ok) {
+            badge.innerHTML = "\u2714 backend verified";
+            badge.style.color = "var(--success)";
+          } else {
+            const code = result.body?.error?.code || result.body?.code || result.status;
+            badge.innerHTML = `\u2718 ${escHtml(String(code))}`;
+            badge.style.color = "var(--danger)";
+            badge.title = result.body?.error?.message || result.body?.message || "";
+          }
+        } catch (err) {
+          badge.innerHTML = `\u2718 ${escHtml(err.message)}`;
+          badge.style.color = "var(--danger)";
+        }
+      }
+
+      $("btn-clear-jwt").addEventListener("click", () => {
+        state.jwt = null;
+        renderJwtDisplay();
+        updateRenderStatus();
+        updateSteps();
+      });
+
+      // Mint helper used by the render button
+      function escHtml(s) {
+        const d = document.createElement("div");
+        d.textContent = s;
+        return d.innerHTML;
+      }
+
+      // ── Preview tabs ──
+      document.querySelectorAll(".preview-tab").forEach((tab) => {
+        tab.addEventListener("click", () => {
+          document.querySelectorAll(".preview-tab").forEach((t) => t.classList.remove("active"));
+          document.querySelectorAll(".preview-pane").forEach((p) => p.classList.remove("active"));
+          tab.classList.add("active");
+          $("pane-" + tab.dataset.tab).classList.add("active");
+        });
+      });
+
+      // ── Render embeds ──
+      function destroyAll() {
+        state.handles.forEach((h) => h.destroy());
+        state.handles = [];
+        for (const id of ["empty-pm", "empty-url"]) {
+          $(id).style.display = "";
+        }
+        $("render-status").innerHTML = "";
+        updateSteps();
+      }
+
+      $("btn-destroy").addEventListener("click", destroyAll);
+
+      // Open direct share link in a new tab — tests the login redirect flow
+      $("btn-open-direct").addEventListener("click", () => {
+        const vr = getSelectedVr();
+        if (!vr?.publicUrlToken) {
+          showError("render-status", "Select a VR with a URL token first.");
+          return;
+        }
+        const base = state.cfg.paidAppBase;
+        const url = `${base}/public/value-receipts/${vr.publicUrlToken}`;
+        window.open(url, "_blank");
+      });
+
+      // Render — uses whatever JWT is active (or none)
+      $("btn-render").addEventListener("click", () => {
+        destroyAll();
+        const vr = getSelectedVr();
+        if (!vr?.publicUrlToken) {
+          showError("render-status", "Select a value receipt with a URL token first.");
+          return;
+        }
+        renderEmbeds(vr, !!state.jwt);
+      });
+
+      function renderEmbeds(vr, withJwt) {
+        const vrOwner = vrCustomerName(vr);
+        const base = state.cfg?.paidAppBase || "https://app.paid.ai";
+        const publicUrl = `${base}/public/value-receipts/${vr.publicUrlToken}`;
+        const jwtInfo = withJwt ? "with JWT" : "<strong>without JWT</strong>";
+        const statusCls = withJwt ? "ok" : "info";
+        $("render-status").innerHTML =
+          `<div class="status-line ${statusCls}" style="margin-top:0.5rem">` +
+          `Rendering ${jwtInfo} &middot; ` +
+          `<strong>VR owner:</strong> ${escHtml(vrOwner)} &middot; ` +
+          `<strong>Status:</strong> ${vr.isPublished ? "published" : "private"}<br>` +
+          `<a href="${publicUrl}" target="_blank" style="color:inherit;text-decoration:underline;word-break:break-all;font-size:0.75rem">${escHtml(publicUrl)}</a>` +
+          `</div>`;
+        // Hide empty placeholders
+        for (const id of ["empty-pm", "empty-url"]) {
+          $(id).style.display = "none";
+        }
+        const pmOpts = {
+          el: "#embed-pm",
+          baseUrl: base,
+          token: vr.publicUrlToken,
+          jwt: state.jwt || undefined,
+          onError: (err) => { $("render-status").innerHTML += `<div class="status-line error" style="margin-top:0.35rem">postMessage error: ${escHtml(err.message)}</div>`; },
+        };
+        // Only wire auto-refresh when the user minted a valid JWT (not
+        // intentionally broken via Force expired / Wrong signature).
+        const isIntentionallyBroken = $("mint-expired").checked || $("mint-wrong-sig").checked;
+        if (state.jwt && !isIntentionallyBroken) {
+          pmOpts.onTokenExpired = async () => {
+            console.log("[test-host] onTokenExpired — minting fresh token");
+            const r = await fetch("/mint", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                resourceId: vr.publicUrlToken,
+                sub: $("mint-sub").value || "c_test",
+              }),
+            });
+            const body = await r.json();
+            state.jwt = body.token;
+            state.handles[0]?.updateToken(body.token);
+          };
+        }
+        state.handles.push(PaidEmbed.renderValueReceipt(pmOpts));
+        state.handles.push(
+          PaidEmbed.renderValueReceipt({
+            el: "#embed-url",
+            baseUrl: base,
+            token: vr.publicUrlToken,
+            jwt: state.jwt || undefined,
+            tokenTransport: "url",
+            onError: (err) => { $("render-status").innerHTML += `<div class="status-line error" style="margin-top:0.35rem">URL param embed error: ${escHtml(err.message)}</div>`; },
+          }),
+        );
+        updateSteps();
+      }
+
+
+      // ── Step 1: URLs ──
+      const origin = window.location.origin;
+      $("url-login").value = `${origin}/auth/share-login`;
+      $("url-refresh").value = `${origin}/api/share-token/refresh`;
+      document.querySelectorAll(".copy-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const input = $(btn.dataset.target);
+          navigator.clipboard.writeText(input.value).then(() => {
+            const prev = btn.textContent;
+            btn.textContent = "Copied";
+            setTimeout(() => { btn.textContent = prev; }, 1500);
+          });
+        });
+      });
+
+      // ── Init ──
+      (async () => {
+        await loadConfig();
+        if (state.cfg?.ready) { await loadCustomers(); await loadVrs(); }
+      })();
+    </script>
+  </body>
+</html>

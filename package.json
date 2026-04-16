@@ -1,0 +1,32 @@
+{
+  "name": "@paid-ai/embed-example",
+  "version": "0.1.0",
+  "description": "Reference integration app for the @paid-ai/embed SDK — shows JWT minting, embed rendering, and share-auth flows.",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/server.ts",
+    "dev": "node --import tsx --watch src/server.ts"
+  },
+  "dependencies": {
+    "@paid-ai/embed": "^0.1.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "tsx": "^4.16.0",
+    "typescript": "^5.5.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.6",
+    "@types/node": "^20.12.11"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/paid-ai/embed-example.git"
+  },
+  "homepage": "https://github.com/paid-ai/embed-example#readme"
+}
